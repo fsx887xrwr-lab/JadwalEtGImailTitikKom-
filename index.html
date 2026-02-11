@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MyGwMine</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg: #030305;
+            --surface: rgba(15, 15, 20, 0.8);
+            --border: rgba(255, 255, 255, 0.08);
+            --neon: #a855f7;
+            --neon-glow: rgba(168, 85, 247, 0.3);
+            --spring: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+            --smooth: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        @keyframes cardPop {
+            0% { opacity: 0; transform: scale(0.96) translateY(30px); filter: blur(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background: var(--bg); color: #f8fafc; font-family: 'Inter', sans-serif;
+            min-height: 100vh; overflow-x: hidden;
+            background-image: radial-gradient(circle at 50% -20%, var(--neon-glow), transparent 70%);
+        }
+
+        nav { padding: 25px 8%; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); backdrop-filter: blur(20px); }
+        #clock { font-family: 'JetBrains Mono'; font-size: 3.5rem; text-align: center; padding: 60px 0; letter-spacing: -3px; text-shadow: 0 0 20px var(--neon-glow); }
+
+        .container { padding: 0 8% 180px; }
+        .wrapper { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+
+        .card { 
+            background: var(--surface); border: 1px solid var(--border); border-radius: 30px; 
+            padding: 30px; backdrop-filter: blur(20px);
+            animation: cardPop 1s var(--smooth) both;
+            transition: transform 0.6s var(--smooth), border-color 0.4s var(--smooth);
+        }
+        .card:hover { transform: translateY(-8px); border-color: rgba(168, 85, 247, 0.4); }
+
+        .schedule-item {
+            padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.02);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .trash-btn { 
+            opacity: 0.1; cursor: pointer; transition: all 0.4s var(--smooth); padding: 8px;
+        }
+        .trash-btn:hover { 
+            opacity: 1; color: #ff4d4d; transform: scale(1.2) rotate(8deg);
+            filter: drop-shadow(0 0 8px rgba(255, 77, 77, 0.4));
+        }
+
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            z-index: 9998; opacity: 0; pointer-events: none; transition: 0.6s var(--smooth);
+        }
+        .overlay.active { opacity: 1; pointer-events: auto; backdrop-filter: blur(8px); }
+
+        .drawer {
+            position: fixed; top: 0; width: 340px; height: 100%;
+            background: rgba(8, 8, 12, 0.95); backdrop-filter: blur(50px);
+            z-index: 9999; padding: 70px 30px; 
+            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #musicDrawer { left: 0; transform: translateX(-100%); border-right: 1px solid var(--border); }
+        #musicDrawer.active { transform: translateX(0); }
+        #addDrawer { right: 0; transform: translateX(100%); border-left: 1px solid var(--border); }
+        #addDrawer.active { transform: translateX(0); }
+
+        .opt { 
+            padding: 18px; background: rgba(255,255,255,0.03); border-radius: 18px; 
+            margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; 
+            align-items: center; transition: 0.4s var(--smooth);
+        }
+        .opt:hover { background: var(--neon); color: #000; transform: scale(1.02); }
+
+        input, select { 
+            width: 100%; background: #000; border: 1px solid var(--border); 
+            padding: 18px; border-radius: 15px; color: #fff; margin-bottom: 15px;
+        }
+
+        .btn-action { background: var(--neon); color: #000; border: none; padding: 18px; border-radius: 15px; width: 100%; font-weight: 800; cursor: pointer; transition: 0.3s; }
+        .btn-action:hover { transform: translateY(-3px); box-shadow: 0 10px 20px var(--neon-glow); }
+
+        .btn-back { background: transparent; color: #fff; opacity: 0.3; border: 1px solid var(--border); margin-top: 15px; padding: 14px; border-radius: 14px; width: 100%; cursor: pointer; }
+
+        /* --- DOCK MENU FIX --- */
+        .dock-wrapper { position: fixed; bottom: 40px; left: 40px; display: flex; align-items: center; gap: 20px; z-index: 9000; }
+        
+        .main-trigger { 
+            width: 75px; height: 75px; border-radius: 25px; background: var(--neon); 
+            color: #000; border: none; font-size: 1.8rem; cursor: pointer; display: flex; 
+            justify-content: center; align-items: center; transition: 0.6s var(--spring); 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .pop-menu { display: flex; gap: 15px; pointer-events: none; }
+        
+        .pop-item { 
+            width: 65px; height: 65px; border-radius: 22px; background: #121218; 
+            border: 1px solid var(--border); color: #fff; display: flex; justify-content: center; 
+            align-items: center; cursor: pointer; opacity: 0; transform: translateY(50px) scale(0); 
+            transition: 0.5s var(--spring); 
+        }
+
+        .dock-wrapper.active .pop-menu { pointer-events: auto; }
+        .dock-wrapper.active .pop-item { opacity: 1; transform: translateY(0) scale(1); }
+        .dock-wrapper.active .pop-item:nth-child(1) { transition-delay: 0.05s; }
+        .dock-wrapper.active .pop-item:nth-child(2) { transition-delay: 0.1s; }
+        .dock-wrapper.active .pop-item:nth-child(3) { transition-delay: 0.15s; }
+        .dock-wrapper.active .main-trigger { transform: rotate(135deg); background: #fff; }
+
+        .day-label { color: var(--neon); font-weight: 800; }
+    </style>
+</head>
+<body>
+
+<audio id="bgMusic" loop></audio>
+<div class="overlay" id="overlay" onclick="closeAll()"></div>
+
+<div class="drawer" id="musicDrawer">
+    <h3 style="opacity:0.3; font-size:0.7rem; margin-bottom:30px; letter-spacing:3px;">Album Kelompok</h3>
+    <div onclick="setTheme('#ff4d4d', 'musi1.mp3')" class="opt">Pump Up The Volume <i class="fa-solid fa-fire"></i></div>
+    <div onclick="setTheme('#a855f7', 'musi2.mp3')" class="opt">𝙁𝙡𝙤𝙠𝙞 𝙭 𝙡𝙤𝙨𝙩 𝙨𝙤𝙪𝙡 <i class="fa-solid fa-moon"></i></div>
+    <div onclick="setTheme('#3b82f6', 'musi3.mp3')" class="opt">Sigma Song <i class="fa-solid fa-snowflake"></i></div>
+    <div onclick="pauseMusic()" class="opt" style="border:1px dashed var(--neon); margin-top:20px;">PAUSE <i class="fa-solid fa-pause"></i></div>
+    <button class="btn-back" onclick="closeAll()">KEMBALI</button>
+</div>
+
+<div class="drawer" id="addDrawer">
+    <h3 style="opacity:0.3; font-size:0.7rem; margin-bottom:30px; letter-spacing:3px;">JADWAL CIK</h3>
+    <select id="fHari">
+        <option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option>
+    </select>
+    <input type="text" id="fMapel" placeholder="Nama Kegiatan">
+    <input type="text" id="fJam" placeholder="Waktu (00:00)">
+    <button class="btn-action" onclick="saveData()">SIMPAN DATA</button>
+    <button class="btn-back" onclick="closeAll()">BATALKAN</button>
+</div>
+
+<nav>
+    <div style="font-weight: 800; letter-spacing: 2px;">Jadwal<span class="day-label" style="margin-left:2px">Sigma Kelompok 6</span></div>
+</nav>
+
+<div id="clock">00:00:00</div>
+
+<div class="container">
+    <div class="wrapper" id="mainWrapper"></div>
+</div>
+
+<div class="dock-wrapper" id="dockMenu">
+    <button class="main-trigger" onclick="togglePop()"><i class="fa-solid fa-plus"></i></button>
+    <div class="pop-menu">
+        <div class="pop-item" onclick="openDrawer('musicDrawer')"><i class="fa-solid fa-music"></i></div>
+        <div class="pop-item" onclick="openDrawer('addDrawer')"><i class="fa-solid fa-calendar-plus"></i></div>
+        <div class="pop-item" onclick="location.reload()"><i class="fa-solid fa-sync"></i></div>
+    </div>
+</div>
+
+<script>
+    const KEY = 'db_sigma_v6';
+    let db = JSON.parse(localStorage.getItem(KEY)) || {"Senin":[], "Selasa":[], "Rabu":[], "Kamis":[], "Jumat":[]};
+    const audio = document.getElementById('bgMusic');
+
+    function updateTime() { document.getElementById('clock').innerText = new Date().toLocaleTimeString('en-GB'); }
+    setInterval(updateTime, 1000); updateTime();
+
+    function togglePop() { document.getElementById('dockMenu').classList.toggle('active'); }
+    
+    function closeAll() {
+        document.getElementById('overlay').classList.remove('active');
+        document.getElementById('musicDrawer').classList.remove('active');
+        document.getElementById('addDrawer').classList.remove('active');
+    }
+    
+    function openDrawer(id) {
+        closeAll();
+        document.getElementById('overlay').classList.add('active');
+        document.getElementById(id).classList.add('active');
+    }
+
+    function setTheme(color, file) {
+        document.documentElement.style.setProperty('--neon', color);
+        document.documentElement.style.setProperty('--neon-glow', color + '44');
+        if(file) { audio.src = file; audio.play().catch(e => {}); }
+        render();
+    }
+    
+    function pauseMusic() { audio.pause(); }
+
+    function render() {
+        const wrapper = document.getElementById('mainWrapper');
+        wrapper.innerHTML = "";
+        Object.keys(db).forEach((day, index) => {
+            const card = document.createElement('div');
+            card.className = "card";
+            card.style.animationDelay = (index * 0.1) + "s";
+            
+            let itemsHtml = db[day].map(item => `
+                <div class="schedule-item">
+                    <div><b>${item.mapel}</b><br><small style="opacity:0.4;">${item.jam}</small></div>
+                    <i class="fa-solid fa-trash trash-btn" onclick="hapus('${day}', ${item.id})"></i>
+                </div>
+            `).join('');
+
+            card.innerHTML = `
+                <div class="day-label" style="font-size:0.7rem; margin-bottom:15px; letter-spacing:3px; border-bottom:1px solid var(--border); padding-bottom:10px;">${day.toUpperCase()}</div>
+                <div>${itemsHtml || '<p style="opacity:0.2; font-size:0.8rem;">Kosong</p>'}</div>
+            `;
+            wrapper.appendChild(card);
+        });
+    }
+
+    function saveData() {
+        const m = document.getElementById('fMapel').value, j = document.getElementById('fJam').value, h = document.getElementById('fHari').value;
+        if(!m || !j) return alert("Isi semua data!");
+        db[h].push({ id: Date.now(), mapel: m, jam: j });
+        localStorage.setItem(KEY, JSON.stringify(db));
+        document.getElementById('fMapel').value = ""; document.getElementById('fJam').value = "";
+        render(); closeAll();
+    }
+
+    function hapus(day, id) {
+        db[day] = db[day].filter(x => x.id !== id);
+        localStorage.setItem(KEY, JSON.stringify(db));
+        render();
+    }
+
+    render();
+</script>
+</body>
+</html>
